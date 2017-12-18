@@ -1,23 +1,29 @@
-/*This program puts the servo values into an array,
- reagrdless of channel number, polarity, ppm frame length, etc...
- You can even change these while scanning!*/
+/*
+Read PPM and RSSI
 
-#define PPM_Pin 3  //this must be 2 or 3
-#define multiplier (F_CPU/8000000)  //leave this alone
-int ppm[16];  //array for storing up to 16 servo signals
-byte servo[] = {1,4,5,6,7,8,9,10};  //pin number of servo output
-#define servoOut  //comment this if you don't want servo output
-//#define DEBUG
+Main author: https://github.com/Hasi123
+Changes made by: Kristian Husum Terkildsen, khte@mmmi.sdu.dk, December '17
+
+The functionality for reading PPM signals have been written by Hasi123.
+I have made some changes and added the logging of the RSSI value, in order to suit my needs.
+
+Notes to dev: 
+* 
+
+Sources of inspiration:
+* https://github.com/Hasi123/read-any-ppm
+*/
+
+#define PPM_Pin 3
+#define multiplier (F_CPU/8000000)
+int ppm[16];
+int RSSIInputPin = A0;
+int analogValue = 0;
 
 void setup()
 {
   Serial.begin(115200);
-  Serial.println("ready");
 
-  #if defined(servoOut)
-  for(byte i=0; sizeof(servo)-1; i++) pinMode(servo[i], OUTPUT);
-  #endif
- 
   pinMode(PPM_Pin, INPUT);
   attachInterrupt(PPM_Pin - 2, read_ppm, CHANGE);
 
@@ -28,21 +34,20 @@ void setup()
 
 void loop()
 {
-  //You can delete everithing inside loop() and put your own code here
-/*  int count;
+  analogValue = analogRead(RSSIInputPin);
 
-  while(ppm[count] != 0){  //print out the servo values
+  int count;
+  while(ppm[count] != 0){
     Serial.print(ppm[count]);
     Serial.print("  ");
     count++;
   }
-  Serial.println("");*/
-  delay(100);  //you can even use delays!!!
+  Serial.print(analogValue);
+  Serial.println("");
+  delay(100);
 }
 
-
-
-void read_ppm(){  //leave this alone
+void read_ppm(){
   static unsigned int pulse;
   static unsigned long counter;
   static byte channel;
@@ -53,26 +58,12 @@ void read_ppm(){  //leave this alone
 
   if(counter < 710*multiplier){  //must be a pulse if less than 710us
     pulse = counter;
-    #if defined(servoOut)
-    if(sizeof(servo) > channel) digitalWrite(servo[channel], HIGH);
-    if(sizeof(servo) >= channel && channel != 0) digitalWrite(servo[channel-1], LOW);
-    #endif
   }
   else if(counter > 1910*multiplier){  //sync pulses over 1910us
     channel = 0;
-    #if defined(DEBUG)
-    Serial.print("PPM Frame Len: ");
-    Serial.println(micros() - last_micros);
-    last_micros = micros();
-    #endif
   }
   else{  //servo values between 710us and 2420us will end up here
     ppm[channel] = (counter + pulse)/multiplier;
-    #if defined(DEBUG)
-    Serial.print(ppm[channel]);
-    Serial.print("  ");
-    #endif
-    
     channel++;
   }
 }
